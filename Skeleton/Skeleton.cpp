@@ -32,7 +32,6 @@
 // negativ elojellel szamoljak el es ezzel parhuzamosan eljaras is indul velem szemben.
 //=============================================================================================
 #include "framework.h"
-#include <iostream>
 
 // vertex shader in GLSL: It is a Raw string (C++11) since it contains new line characters
 const char * const vertexSource = R"(
@@ -68,8 +67,6 @@ vec2 getPoint(vec2 point, vec2 dir, float d) {
 
 	vec2 vec = dir * d;
 	newPoint = point + vec;
-
-	std::cout << newPoint.x << " " << newPoint.y;
 
 	return newPoint;
 };
@@ -143,22 +140,21 @@ public:
 
 	Hami(vec2 position, vec3 color) {
 		//test
-		list.push_back(Circle(position, 0.2f, color));
+		list.push_back(Circle(position, 0.1f, color));
 		
 		//szemek
-		list.push_back(Circle(	getPoint(list[0].getCenter(),		vec2(cos(1.0f), sin(1.0f)),			list[0].getRadius()),		 0.05f,		vec3(1.0f, 1.0f, 1.0f)));
-		list.push_back(Circle(	getPoint(list[0].getCenter(),		vec2(-cos(1.0f), sin(1.0f)),		list[0].getRadius()),		 0.05f,		vec3(1.0f, 1.0f, 1.0f)));
+		list.push_back(Circle(	getPoint(list[0].getCenter(),		vec2(cos(1.0f), sin(1.0f)),			list[0].getRadius()),		 0.025f,		vec3(1.0f, 1.0f, 1.0f)));
+		list.push_back(Circle(	getPoint(list[0].getCenter(),		vec2(-cos(1.0f), sin(1.0f)),		list[0].getRadius()),		 0.025f,		vec3(1.0f, 1.0f, 1.0f)));
 
 		//pupilla
-		list.push_back(Circle(getPoint(list[1].getCenter(), vec2(0,0), list[0].getRadius()), 0.02f, vec3(0.0f, 0.0f, 0.0f)));
-		list.push_back(Circle(getPoint(list[2].getCenter(), vec2(0,0), list[0].getRadius()), 0.02f, vec3(0.0f, 0.0f, 0.0f)));
+		list.push_back(Circle(getPoint(list[1].getCenter(), vec2(0,0), list[0].getRadius()), 0.01f, vec3(0.0f, 0.0f, 1.0f)));
+		list.push_back(Circle(getPoint(list[2].getCenter(), vec2(0,0), list[0].getRadius()), 0.01f, vec3(0.0f, 0.0f, 1.0f)));
 
 		//szaj
-		list.push_back(Circle(getPoint(list[0].getCenter(), vec2(0, 0.88f), list[0].getRadius()), 0.06f, vec3(0.0f, 0.0f, 0.0f)));
+		list.push_back(Circle(getPoint(list[0].getCenter(), vec2(0, 0.88f), list[0].getRadius()), 0.03f, vec3(0.0f, 0.0f, 0.0f)));
 
 	}
 
-	
 
 	void createHami() {
 		for (int i = 0; i < list.size(); i++) {
@@ -176,18 +172,13 @@ public:
 //Circle circle(vec2(0.5f, 0.5f), 0.5f);
 Hami hamip(vec2(-0.5f, -0.3f), vec3(1.0f, 0.0f, 0.0f));
 Hami hamiz(vec2(0.5f, 0.3f), vec3(0.0f, 1.0f, 0.0f));
+Circle palya = Circle(vec2(0,0), 1.0f, vec3(0.0f, 0.0f, 0.0f));
+
 
 // Initialization, create an OpenGL context
 void onInitialization() {
 	glViewport(0, 0, windowWidth, windowHeight);
-
-	//glGenVertexArrays(1, &vao);	// get 1 vao id
-	//glBindVertexArray(vao);		// make it active
-
-	//unsigned int vbo;		// vertex buffer object
-	//glGenBuffers(1, &vbo);	// Generate 1 buffer
-	//glBindBuffer(GL_ARRAY_BUFFER, vbo);
-	// Geometry with 24 bytes (6 floats or 3 x 2 coordinates)
+	palya.create();
 
 	hamip.createHami();
 	hamiz.createHami();
@@ -199,8 +190,10 @@ void onInitialization() {
 
 // Window has become invalid: Redraw
 void onDisplay() {
-	//glClearColor(0, 0, 0, 0);     // background color
+	glClearColor(0.5f, 0.5f, 0.5f, 0);     // background color
 	glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT); // clear frame buffer
+	
+	palya.drawCircle();
 
 	hamip.drawHami();
 	hamiz.drawHami();
