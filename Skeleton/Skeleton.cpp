@@ -32,6 +32,7 @@
 // negativ elojellel szamoljak el es ezzel parhuzamosan eljaras is indul velem szemben.
 //=============================================================================================
 #include "framework.h"
+#include <iostream>
 
 // vertex shader in GLSL: It is a Raw string (C++11) since it contains new line characters
 const char * const vertexSource = R"(
@@ -62,16 +63,38 @@ const char * const fragmentSource = R"(
 GPUProgram gpuProgram; // vertex and fragment shaders
 unsigned int vao, vbo;// virtual world on the GPU
 
+vec2 getPoint(vec2 point, vec2 dir, float d) {
+	vec2 newPoint;
+
+	vec2 vec = dir * d;
+	newPoint = point + vec;
+
+	std::cout << newPoint.x << " " << newPoint.y;
+
+	return newPoint;
+};
+
 
 class Circle {
 	static const int nv = 100;
 	vec2 center;
 	float radius;
+	vec3 color;
 public:
-	Circle(vec2 c, float r) {
-		this->center = c;
+	Circle(vec2 cent, float r, vec3 col) {
+		this->center = cent;
 		this->radius = r;
+		this->color = col;
 	}
+
+	vec2 getCenter() {
+		return center;
+	}
+
+	float getRadius(){
+		return radius;
+	}
+
 	void create() {
 		glGenVertexArrays(1, &vao);	// get 1 vao id
 		glBindVertexArray(vao);		// make it active
@@ -98,14 +121,13 @@ public:
 	};
 
 	void drawCircle() {
-		// Set color to (0, 1, 0) = green
 		int location = glGetUniformLocation(gpuProgram.getId(), "color");
-		glUniform3f(location, radius, 0.0f, 1.0f); // 3 floats
+		glUniform3f(location, color.x, color.y, color.z); // 3 floats
 
 		float MVPtransf[4][4] = { radius, 0, 0, 0,    // MVP matrix, 
 								  0, radius, 0, 0,    // row-major!
-								  0, 0, 1, 0,
-								  radius, -radius, 0, 1 };
+								  0, 0, 0, 0,
+								  center.x, center.y, 0, 1 };
 
 		location = glGetUniformLocation(gpuProgram.getId(), "MVP");	// Get the GPU location of uniform variable MVP
 		glUniformMatrix4fv(location, 1, GL_TRUE, &MVPtransf[0][0]);	// Load a 4x4 row-major float matrix to the specified location
@@ -118,40 +140,42 @@ public:
 class Hami{
 public:
 	std::vector<Circle> list;
-	Circle circle= Circle(vec2(0.3f, 0.5f), 0.5f);
-	Circle circle2 = Circle(vec2(0.0f, 0.0f), 0.3f);
 
-	Hami() {
-		//list.push_back(Circle(vec2(0.3f, 0.5f), 0.5f));
+	Hami(vec2 position, vec3 color) {
+		//test
+		list.push_back(Circle(position, 0.2f, color));
+		
+		//szemek
+		list.push_back(Circle(	getPoint(list[0].getCenter(),		vec2(cos(1.0f), sin(1.0f)),			list[0].getRadius()),		 0.05f,		vec3(1.0f, 1.0f, 1.0f)));
+		list.push_back(Circle(	getPoint(list[0].getCenter(),		vec2(-cos(1.0f), sin(1.0f)),		list[0].getRadius()),		 0.05f,		vec3(1.0f, 1.0f, 1.0f)));
+
+		//pupilla
+		list.push_back(Circle(getPoint(list[1].getCenter(), vec2(0,0), list[0].getRadius()), 0.02f, vec3(0.0f, 0.0f, 0.0f)));
+		list.push_back(Circle(getPoint(list[2].getCenter(), vec2(0,0), list[0].getRadius()), 0.02f, vec3(0.0f, 0.0f, 0.0f)));
+
+		//szaj
+		list.push_back(Circle(getPoint(list[0].getCenter(), vec2(0, 0.88f), list[0].getRadius()), 0.06f, vec3(0.0f, 0.0f, 0.0f)));
+
 	}
 
 	
 
 	void createHami() {
-		//for (int i = 0; i < list.size(); i++) {
-			//list[i].create();
-		//}
-		circle.create();
-		circle2.create();
+		for (int i = 0; i < list.size(); i++) {
+			list[i].create();
+		}
 	}
 
 	void drawHami() {
-		/*for (int i = 0; i < list.size(); i++) {
+		for (int i = 0; i < list.size(); i++) {
 			list[i].drawCircle();
-		}*/
-
-		circle.drawCircle();
-		circle2.drawCircle();
-	//	list[1].drawCircle();
+		}
 	}
 };
 
 //Circle circle(vec2(0.5f, 0.5f), 0.5f);
-Hami hami;
-
-Circle circle = Circle(vec2(0.3f, 0.5f), 0.5f);
-Circle circle2 = Circle(vec2(0.0f, 0.0f), 0.3f);
-
+Hami hamip(vec2(-0.5f, -0.3f), vec3(1.0f, 0.0f, 0.0f));
+Hami hamiz(vec2(0.5f, 0.3f), vec3(0.0f, 1.0f, 0.0f));
 
 // Initialization, create an OpenGL context
 void onInitialization() {
@@ -165,10 +189,9 @@ void onInitialization() {
 	//glBindBuffer(GL_ARRAY_BUFFER, vbo);
 	// Geometry with 24 bytes (6 floats or 3 x 2 coordinates)
 
-	circle.create();
-	circle2.create();
+	hamip.createHami();
+	hamiz.createHami();
 
-	//hami.createHami();
 
 	// create program for the GPU
 	gpuProgram.create(vertexSource, fragmentSource, "outColor");
@@ -179,9 +202,9 @@ void onDisplay() {
 	//glClearColor(0, 0, 0, 0);     // background color
 	glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT); // clear frame buffer
 
-	//hami.drawHami();
-	circle.drawCircle();
-	circle2.drawCircle();
+	hamip.drawHami();
+	hamiz.drawHami();
+
 
 	glutSwapBuffers(); // exchange buffers for double buffering
 }
