@@ -60,92 +60,115 @@ const char * const fragmentSource = R"(
 )";
 
 GPUProgram gpuProgram; // vertex and fragment shaders
-unsigned int vao;	   // virtual world on the GPU
+unsigned int vao, vbo;// virtual world on the GPU
 
 
-
-
-const int nv = 100; //kor csucsszamai
-
-void vasarely_festmeny() {
-
-	const int nc = 20; //korok szama
-	for (int i = 0; i < nc; i++) {
-		float t = i / (nc - 1.0f); //interpolacios valtozo
-		float r = 1.0f * (1 - t) + 1.0f / nc * t;
-		vec3 c = (i % 2 == 0) ? vec3(1, 0, 0) * (1 - t) + vec3(0, 0, 0) * t : vec3(0, 0, 0.5f) * (1 - t) + vec3(0, 1, 1) * t;
-
-		// Set color to (0, 1, 0) = green
-		int location = glGetUniformLocation(gpuProgram.getId(), "color");
-		glUniform3f(location, c.x, c.y, c.z); // 3 floats
-
-		float y = t * (1 - t) * 1.1f;
-		float MVPtransf[4][4] = { r, 0, 0, 0,    // MVP matrix, 
-								  0, r, 0, 0,    // row-major!
-								  0, 0, 1, 0,
-								  0, y, 0, 1 };
-
-		location = glGetUniformLocation(gpuProgram.getId(), "MVP");	// Get the GPU location of uniform variable MVP
-		glUniformMatrix4fv(location, 1, GL_TRUE, &MVPtransf[0][0]);	// Load a 4x4 row-major float matrix to the specified location
-
-		glBindVertexArray(vao);  // Draw call
-		glDrawArrays(GL_TRIANGLE_FAN, 0 /*startIdx*/, nv /*# Elements*/);
+class Circle {
+	static const int nv = 100;
+	vec2 center;
+	float radius;
+public:
+	Circle(vec2 c, float r) {
+		this->center = c;
+		this->radius = r;
 	}
-}
+	void create() {
+		glGenVertexArrays(1, &vao);	// get 1 vao id
+		glBindVertexArray(vao);		// make it active
 
-void piroskor() {
-	const int nc = 20; //korok szama
+		unsigned int vbo;		// vertex buffer object
+		glGenBuffers(1, &vbo);	// Generate 1 buffer
+		glBindBuffer(GL_ARRAY_BUFFER, vbo);
+		// Geometry with 24 bytes (6 floats or 3 x 2 coordinates)
+		vec2 vertices[nv];
+		for (int i = 0; i < nv; i++) {
+			float fi = i * 2 * M_PI / nv;
+			//vertices[i] = vec2(this->center.x + this->radius * cosf(fi), this->center.y + this->radius * sinf(fi));
+			vertices[i] = vec2(cos(fi), sin(fi));
+		}
+		glBufferData(GL_ARRAY_BUFFER, 	// Copy to GPU target
+			sizeof(vec2) * nv,  // # bytes
+			vertices,	      	// address
+			GL_STATIC_DRAW);	// we do not change later
+
+		glEnableVertexAttribArray(0);  // AttribArray 0
+		glVertexAttribPointer(0,       // vbo -> AttribArray 0
+			2, GL_FLOAT, GL_FALSE, // two floats/attrib, not fixed-point
+			0, NULL); 		     // stride, offset: tightly packed
+	};
+
+	void drawCircle() {
 		// Set color to (0, 1, 0) = green
 		int location = glGetUniformLocation(gpuProgram.getId(), "color");
-		glUniform3f(location, 1.0f, 0.0f, 0.0f); // 3 floats
+		glUniform3f(location, radius, 0.0f, 1.0f); // 3 floats
 
-		float MVPtransf[4][4] = { 1, 0, 0, 0,    // MVP matrix, 
-								  0, 1, 0, 0,    // row-major!
+		float MVPtransf[4][4] = { radius, 0, 0, 0,    // MVP matrix, 
+								  0, radius, 0, 0,    // row-major!
 								  0, 0, 1, 0,
-								  0, 0, 0, 1 };
+								  radius, -radius, 0, 1 };
 
 		location = glGetUniformLocation(gpuProgram.getId(), "MVP");	// Get the GPU location of uniform variable MVP
 		glUniformMatrix4fv(location, 1, GL_TRUE, &MVPtransf[0][0]);	// Load a 4x4 row-major float matrix to the specified location
 
 		glBindVertexArray(vao);  // Draw call
 		glDrawArrays(GL_TRIANGLE_FAN, 0 /*startIdx*/, nv /*# Elements*/);
-}
+	};
+};
 
+class Hami{
+public:
+	std::vector<Circle> list;
+	Circle circle= Circle(vec2(0.3f, 0.5f), 0.5f);
+	Circle circle2 = Circle(vec2(0.0f, 0.0f), 0.3f);
+
+	Hami() {
+		//list.push_back(Circle(vec2(0.3f, 0.5f), 0.5f));
+	}
+
+	
+
+	void createHami() {
+		//for (int i = 0; i < list.size(); i++) {
+			//list[i].create();
+		//}
+		circle.create();
+		circle2.create();
+	}
+
+	void drawHami() {
+		/*for (int i = 0; i < list.size(); i++) {
+			list[i].drawCircle();
+		}*/
+
+		circle.drawCircle();
+		circle2.drawCircle();
+	//	list[1].drawCircle();
+	}
+};
+
+//Circle circle(vec2(0.5f, 0.5f), 0.5f);
+Hami hami;
+
+Circle circle = Circle(vec2(0.3f, 0.5f), 0.5f);
+Circle circle2 = Circle(vec2(0.0f, 0.0f), 0.3f);
 
 
 // Initialization, create an OpenGL context
 void onInitialization() {
 	glViewport(0, 0, windowWidth, windowHeight);
 
-	glGenVertexArrays(1, &vao);	// get 1 vao id
-	glBindVertexArray(vao);		// make it active
+	//glGenVertexArrays(1, &vao);	// get 1 vao id
+	//glBindVertexArray(vao);		// make it active
 
-	unsigned int vbo;		// vertex buffer object
-	glGenBuffers(1, &vbo);	// Generate 1 buffer
-	glBindBuffer(GL_ARRAY_BUFFER, vbo);
+	//unsigned int vbo;		// vertex buffer object
+	//glGenBuffers(1, &vbo);	// Generate 1 buffer
+	//glBindBuffer(GL_ARRAY_BUFFER, vbo);
 	// Geometry with 24 bytes (6 floats or 3 x 2 coordinates)
 
+	circle.create();
+	circle2.create();
 
-	/////festmeny_kezd
-	vec2 vertices[nv];
-
-	for (int i = 0; i < nv; i++) {
-		float fi = i * 2 * M_PI / nv;
-		vertices[i] = vec2(cosf(fi), sinf(fi));
-	}
-
-	glBufferData(GL_ARRAY_BUFFER, 	// Copy to GPU target
-		sizeof(vec2)*nv,  // # bytes
-		vertices,	      	// address
-		GL_STATIC_DRAW);	// we do not change later
-
-	glEnableVertexAttribArray(0);  // AttribArray 0
-	glVertexAttribPointer(0,       // vbo -> AttribArray 0
-		2, GL_FLOAT, GL_FALSE, // two floats/attrib, not fixed-point
-		0, NULL); 		     // stride, offset: tightly packed
-	//////////festmeny vege
-
-
+	//hami.createHami();
 
 	// create program for the GPU
 	gpuProgram.create(vertexSource, fragmentSource, "outColor");
@@ -153,11 +176,12 @@ void onInitialization() {
 
 // Window has become invalid: Redraw
 void onDisplay() {
-	glClearColor(0, 0, 0, 0);     // background color
+	//glClearColor(0, 0, 0, 0);     // background color
 	glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT); // clear frame buffer
 
-	//vasarely_festmeny();
-	piroskor();
+	//hami.drawHami();
+	circle.drawCircle();
+	circle2.drawCircle();
 
 	glutSwapBuffers(); // exchange buffers for double buffering
 }
