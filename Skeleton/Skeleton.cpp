@@ -73,10 +73,15 @@ vec2 getPoint(vec2 point, vec2 dir, float d) {
 
 
 class Circle {
-	static const int nv = 100;
+	static const int nv = 3;
 	vec2 center;
 	float radius;
 	vec3 color;
+
+	float sx, sy;		// scaling
+	vec2 wTranslate=vec2(0,0);	// translation
+	float phi=0;			// angle of rotation
+
 public:
 	Circle(vec2 cent, float r, vec3 col) {
 		this->center = cent;
@@ -103,7 +108,6 @@ public:
 		vec2 vertices[nv];
 		for (int i = 0; i < nv; i++) {
 			float fi = i * 2 * M_PI / nv;
-			//vertices[i] = vec2(this->center.x + this->radius * cosf(fi), this->center.y + this->radius * sinf(fi));
 			vertices[i] = vec2(cos(fi), sin(fi));
 		}
 		glBufferData(GL_ARRAY_BUFFER, 	// Copy to GPU target
@@ -117,20 +121,79 @@ public:
 			0, NULL); 		     // stride, offset: tightly packed
 	};
 
+	mat4 Mrot() { // modeling transform
+		//mat4 Mrotate(cosf(phi), -sinf(phi),  0 ,0,
+		//	sinf(phi), cosf(phi), 0, 0,
+		//	0, 0, 1, 0,
+		//	0, 0, 0, 1); // rotation
+
+		//mat4 Mtranslate(1, 0, 0, 0,
+		//	0, 1, 0, 0,
+		//	0, 0, 0, 0,
+		//	wTranslate.x, wTranslate.y, 0, 1); // translation
+
+		//return Mrotate * Mtranslate;
+
+		vec2 core = vec2(-0.5f, -0.3f);
+
+			// Translate to the origin
+			mat4 Mtranslate1(1, 0, 0, 0,
+				0, 1, 0, 0,
+				0, 0, 1, 0,
+				-core.x,-core.y, 0, 1);
+
+			// Rotate
+			mat4 Mrotate(cosf(phi), -sinf(phi), 0, 0,
+				sinf(phi), cosf(phi), 0, 0,
+				0, 0, 1, 0,
+				0, 0, 0, 1); // rotation
+
+			// Translate back to the original position
+			mat4 Mtranslate2(1, 0, 0, 0,
+				0, 1, 0, 0,
+				0, 0, 1, 0,
+				core.x, core.y, 0, 1);
+
+			// Combine the transformations
+			return Mtranslate1 * Mrotate * Mtranslate2;
+	}
+
+	mat4 Mmov() {
+		mat4 Mtranslate(1, 0, 0, 0,
+			0, 1, 0, 0,
+			0, 0, 0, 0,
+			wTranslate.x, wTranslate.y, 0, 1); // translation
+
+		return Mtranslate;
+	}
+
+	void AddTranslation(vec2 wT, float szog) { 
+		wTranslate = wTranslate + wT; 
+		phi = phi + szog;
+	}
+
 	void drawCircle() {
 		int location = glGetUniformLocation(gpuProgram.getId(), "color");
 		glUniform3f(location, color.x, color.y, color.z); // 3 floats
 
-		float MVPtransf[4][4] = { radius, 0, 0, 0,    // MVP matrix, 
-								  0, radius, 0, 0,    // row-major!
-								  0, 0, 0, 0,
-								  center.x, center.y, 0, 1 };
+		mat4 MVPtransf = { radius, 0, 0, 0,    // MVP matrix, 
+						  0, radius, 0, 0,    // row-major!
+							0, 0, 0, 0,
+							 center.x, center.y, 0, 1 };
+
+		mat4 MVPTransform = MVPtransf*Mrot()*Mmov();
 
 		location = glGetUniformLocation(gpuProgram.getId(), "MVP");	// Get the GPU location of uniform variable MVP
-		glUniformMatrix4fv(location, 1, GL_TRUE, &MVPtransf[0][0]);	// Load a 4x4 row-major float matrix to the specified location
+		glUniformMatrix4fv(location, 1, GL_TRUE, MVPTransform);	// Load a 4x4 row-major float matrix to the specified location
 
 		glBindVertexArray(vao);  // Draw call
 		glDrawArrays(GL_TRIANGLE_FAN, 0 /*startIdx*/, nv /*# Elements*/);
+
+		//// set GPU uniform matrix variable MVP with the content of CPU variable MVPTransform
+		//mat4 MVPTransform = M();
+		//gpuProgram.setUniform(MVPTransform, "MVP");
+		//glBindVertexArray(vao);
+		//glDrawArrays(GL_TRIANGLE_FAN, 0 /*startIdx*/, nv /*# Elements*/);
 	};
 };
 
@@ -167,18 +230,26 @@ public:
 			list[i].drawCircle();
 		}
 	}
+
+	void moveHami(vec2 dir, float sec) {
+		for (int i = 0; i < list.size(); i++) {
+			list[i].AddTranslation(dir, sec);
+		}
+	}
 };
 
 //Circle circle(vec2(0.5f, 0.5f), 0.5f);
 Hami hamip(vec2(-0.5f, -0.3f), vec3(1.0f, 0.0f, 0.0f));
 Hami hamiz(vec2(0.5f, 0.3f), vec3(0.0f, 1.0f, 0.0f));
-Circle palya = Circle(vec2(0,0), 1.0f, vec3(0.0f, 0.0f, 0.0f));
+Circle palya = Circle(vec2(0,0), 1, vec3(0.0f, 0.0f, 0.0f));
+Circle kp = Circle(vec2(0.0, 0.0f), 0.1f, vec3(1.0f, 0.0f, 0.0f));
 
 
 // Initialization, create an OpenGL context
 void onInitialization() {
 	glViewport(0, 0, windowWidth, windowHeight);
 	palya.create();
+	kp.create();
 
 	hamip.createHami();
 	hamiz.createHami();
@@ -194,6 +265,7 @@ void onDisplay() {
 	glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT); // clear frame buffer
 	
 	palya.drawCircle();
+	kp.drawCircle();
 
 	hamip.drawHami();
 	hamiz.drawHami();
@@ -204,7 +276,27 @@ void onDisplay() {
 
 // Key of ASCII code pressed
 void onKeyboard(unsigned char key, int pX, int pY) {
-	if (key == 'd') glutPostRedisplay();         // if d, invalidate display, i.e. redraw
+	switch (key) {
+	///*case 's': camera.Pan(vec2(-1, 0)); break;
+	//case 'd': camera.Pan(vec2(+1, 0)); break;
+	//case 'e': camera.Pan(vec2(0, 1)); break;
+	//case 'x': camera.Pan(vec2(0, -1)); break;
+	//case 'z': camera.Zoom(0.9f); break;
+	//case 'Z': camera.Zoom(1.1f); break;*/
+	/*case 'a': hamip.moveHami(vec2(-0.01, 0)); printf("Pressed a\n"); break;
+	case 'w': hamip.moveHami(vec2(0, +0.01)); printf("Pressed w\n"); break;
+	case 's': hamip.moveHami(vec2(0, -0.01)); printf("Pressed s\n"); break;
+	case 'd': hamip.moveHami(vec2(+0.01, 0)); printf("Pressed d\n"); break;*/
+
+
+	case 'a': hamip.moveHami(vec2(-0.01f, 0), 0); printf("Pressed a\n"); break;
+	case 'w': hamip.moveHami(vec2(0, 0.01f), 0); printf("Pressed w\n"); break;
+	case 's': hamip.moveHami(vec2(0, -0.01f), 0); printf("Pressed s\n"); break;
+	case 'd': hamip.moveHami(vec2(0.01f,0), 0); printf("Pressed d\n"); break;
+	case 'e': hamip.moveHami(vec2(0, 0), 0.5); printf("Pressed e\n"); break;
+	case 'q': hamip.moveHami(vec2(0, 0), -0.5); printf("Pressed q\n"); break;
+	}
+	glutPostRedisplay();
 }
 
 // Key of ASCII code released
@@ -241,4 +333,12 @@ void onMouse(int button, int state, int pX, int pY) { // pX, pY are the pixel co
 // Idle event indicating that some time elapsed: do animation here
 void onIdle() {
 	long time = glutGet(GLUT_ELAPSED_TIME); // elapsed time since the start of the program
+	float sec = time / 1000.0f;				// convert msec to sec
+	//printf("%f\n", sec);
+	//kp.AddTranslation(vec2(0,0), sec);	// animate the triangle object
+	//hamip.moveHami(vec2(+0.0001, 0));
+	//hamip.moveHami(vec2(0, +0.0001));
+
+	glutPostRedisplay();
+	
 }
