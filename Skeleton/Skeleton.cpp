@@ -70,6 +70,7 @@ const char* const fragmentSource = R"(
 
 GPUProgram gpuProgram; // vertex and fragment shaders
 unsigned int vao, vbo;// virtual world on the GPU
+const int nv = 100;
 
 vec3 toHyper(vec2 point) {
 	/*float x = point.x;
@@ -84,14 +85,17 @@ vec3 toHyper(vec2 point) {
 
 	return vec3(z, theta, phi);*/
 
-	float oszt = sqrt(1 - (point.x * point.x) - (point.x * point.x));
-	vec3 vek = vec3(point.x, point.y, 1.0f) / oszt;
+	//float oszt = sqrt(1 - (point.x * point.x) - (point.x * point.x));
+	//vec3 vek = vec3(point.x, point.y, 1.0f) / oszt;
+
+	vec3 vek;
+	vek.x = (-2 * point.x)/(point.x* point.x+ point.y * point.y +-1);
+	vek.y= (-2 * point.y) / (point.x * point.x+ point.y * point.y - 1);
+	vek.z = sqrt(vek.x * vek.x + vek.y * vek.y + 1);
 
 	//printf(" tohyper: %f, %f\n", vek.x, vek.y);
 
 	return vek;
-
-
 	
 }
 
@@ -99,78 +103,128 @@ vec2 toEukl(vec3 point) {
 	//printf("ezhanyszorfutle");
 	
 	//printf(" euhy: %f, %f, %f", point.x, point.y, point.z);
-	vec2 vek = vec2(point.x / point.z, point.y / point.z);
+	vec2 vek = vec2(point.x / (point.z+1), point.y / (point.z+1));
 
 	//printf(" eu: %f, %f\n", vek.x, vek.y);
 
 	return vek;
 }
 
-vec3 modositas(vec3 p) {
-	vec3 q = p;
-	vec3 v = (1, 1, 1);
+vec3 modositas2(const vec3& v) {
+	const vec3 axis(1.0f, 0.0f, 0.0f);
+	const float offset = 2.0f;
 
-	//printf("   hy: %f, %f", q.x, q.y);
+	const float axis_length = length(axis);
+	const float cosh_offset = cosh(offset / axis_length);
+	const float sinh_offset = sinh(offset / axis_length);
+	const vec3 normalized_axis = axis / axis_length;
 
-	//printf("   ujhy: %f, %f\n",  q.x, q.y);
+	const vec3 v_parallel = normalized_axis * dot(v, normalized_axis);
+	const vec3 v_perpendicular = v - v_parallel;
 
-	//q = p * cosh(0.5) + v * sinh(0.5);
-	//q = vec3(p.x + 0.1, p.y + 0.1, p.z + 0.1);
-	q.x = q.x +0.1f;
-	q.y = q.y +0.1f;
-	q.z = q.z +0.1f;
+	const vec3 translation = v_parallel * cosh_offset + v_perpendicular * sinh_offset;
 
-	return q;
+	return translation;
 }
 
-static const int nv = 3;
-float radius = 0.5f;
-//vec2 center = vec2(0.8f, 0.8f);
-vec2 center = vec2(0.5f, 0.5f);
-vec2 vertices[nv];
-vec3 verticeshy[nv];
+void modositas(vec3 p[nv], vec3 v) {
+	v = vec3(1, 0, 1);
+
+	for (int i = 0; i < nv; i++) {
+		
+		p[i].x = p[i].x * sinh(1.1) + v.x * cosh(1.1);
+		p[i].y = p[i].y * sinh(1.1) + v.y * cosh(1.1);
+		p[i].z = sqrt(p[i].x * p[i].x + p[i].y * p[i].y + 1);
+
+		//p[i] = modositas2(p[i]);
+	}
 
 
-//Circle palya = Circle(vec2(0, 0), 1, vec3(0.0f, 0.0f, 0.0f));
 
+}
+
+
+
+class Circle{
+public:
+
+	float radius = 0.5f;
+	vec2 center = vec2(0.5f, 0.5f);
+	vec2 vertices[nv];
+	vec3 verticeshy[nv];
+
+	Circle() {
+
+	}
+
+	void vetites() {
+		for (int i = 0; i < nv; i++) {
+			vertices[i] = toEukl(verticeshy[i]);
+		}
+	}
+
+	void create() {
+		glGenVertexArrays(1, &vao);  // get 1 vao id
+		glBindVertexArray(vao);      // make it active
+
+		glGenBuffers(1, &vbo);    // Generate 1 buffer
+		glBindBuffer(GL_ARRAY_BUFFER, vbo);
+
+
+		for (int i = 0; i < nv; i++) {
+
+			float fi = i * 2 * M_PI / nv;
+			float x = cos(fi);
+			float y = sin(fi);
+			vertices[i] = vec2(cos(fi) * radius
+				, sin(fi) * radius);
+			//printf(" %d sima: %f, %f",i, vertices[i].x, vertices[i].y);
+
+
+			verticeshy[i] = toHyper(vertices[i]);
+			//printf("  %d hy: %f, %f", i, verticeshy[i].x, verticeshy[i].y);
+		}
+
+		glEnableVertexAttribArray(0);  // AttribArray 0
+		glVertexAttribPointer(0,       // vbo -> AttribArray 0
+			2, GL_FLOAT, GL_FALSE, // two floats/attrib, not fixed-point
+			0, NULL);               // stride, offset: tightly packed
+
+	}
+
+	void draw() {
+
+		int location = glGetUniformLocation(gpuProgram.getId(), "color");
+		glUniform3f(location, 1.0f, 0.0f, 0.0f); // 3 floats
+
+		mat4 MVPtransf = { 1, 0, 0, 0,    // MVP matrix, 
+						  0, 1, 0, 0,    // row-major!
+						  0, 0, 1, 0,
+						   0, 0, 0, 1 };
+
+		location = glGetUniformLocation(gpuProgram.getId(), "MVP");	// Get the GPU location of uniform variable MVP
+		glUniformMatrix4fv(location, 1, GL_TRUE, MVPtransf);	// Load a 4x4 row-major float matrix to the specified location
+
+
+		glBindVertexArray(vao);
+
+		glBufferData(GL_ARRAY_BUFFER,  // Copy to GPU target
+			sizeof(vec2) * nv,  // # bytes
+			vertices,           // address
+			GL_STATIC_DRAW);    // we do not change later
+
+		glUseProgram(gpuProgram.getId());
+		glDrawArrays(GL_TRIANGLE_FAN, 0, nv); // Draw call
+	}
+};
+
+Circle circle;
 
 // Initialization, create an OpenGL context
 void onInitialization() {
 	glViewport(0, 0, windowWidth, windowHeight);
 
-	glGenVertexArrays(1, &vao);  // get 1 vao id
-	glBindVertexArray(vao);      // make it active
-
-	glGenBuffers(1, &vbo);    // Generate 1 buffer
-	glBindBuffer(GL_ARRAY_BUFFER, vbo);
-
-
-	for (int i = 0; i < nv; i++) {
-
-		float fi = i * 2 * M_PI / nv;
-		float x = cos(fi);
-		float y = sin(fi);
-		vertices[i] = vec2(cos(fi)*radius, sin(fi)*radius);
-		//printf(" %d sima: %f, %f",i, vertices[i].x, vertices[i].y);
-		
-
-		verticeshy[i] = toHyper(vertices[i]);
-		//printf("  %d hy: %f, %f", i, verticeshy[i].x, verticeshy[i].y);
-	}
-
-
-	//printf("  hy: %f, %f", verticeshy[0].x, verticeshy[0].y);
-	//verticeshy[0] = modositas(verticeshy[0]);
-	//printf("  ujhy: %f, %f\n",  verticeshy[0].x, verticeshy[0].y);
-
-	//printf("  sima: %f, %f", vertices[0].x, vertices[0].y);
-	//vertices[0] = toEukl(verticeshy[0]);
-	//printf("  ujsima: %f, %f\n", vertices[0].x, vertices[0].y);
-
-	glEnableVertexAttribArray(0);  // AttribArray 0
-	glVertexAttribPointer(0,       // vbo -> AttribArray 0
-		2, GL_FLOAT, GL_FALSE, // two floats/attrib, not fixed-point
-		0, NULL);               // stride, offset: tightly packed
+	circle.create();
 
 	// create program for the GPU
 	gpuProgram.create(vertexSource, fragmentSource, "outColor");
@@ -183,37 +237,7 @@ void onDisplay() {
 	glClearColor(0.0f, 0.0f, 0.0f, 0);     // background color
 	glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT); // clear frame buffer
 
-	for (int i = 0; i < nv; i++) {
-		//printf(" %d sima: %f, %f", i, vertices[i].x, vertices[i].y);
-		//vertices[i] = toEukl(verticeshy[i]);
-		//printf(" %d ujsima: %f, %f\n", i, vertices[i].x, vertices[i].y);
-	}
-	
-
-
-	int location = glGetUniformLocation(gpuProgram.getId(), "color");
-	glUniform3f(location, 1.0f, 0.0f, 0.0f); // 3 floats
-
-	mat4 MVPtransf = { 1, 0, 0, 0,    // MVP matrix, 
-					  0, 1, 0, 0,    // row-major!
-					  0, 0, 1, 0,
-					   0, 0, 0, 1 };
-
-
-
-	location = glGetUniformLocation(gpuProgram.getId(), "MVP");	// Get the GPU location of uniform variable MVP
-	glUniformMatrix4fv(location, 1, GL_TRUE, MVPtransf);	// Load a 4x4 row-major float matrix to the specified location
-
-
-	glBindVertexArray(vao);
-
-	glBufferData(GL_ARRAY_BUFFER,  // Copy to GPU target
-		sizeof(vec2) * nv,  // # bytes
-		vertices,           // address
-		GL_STATIC_DRAW);    // we do not change later
-
-	glUseProgram(gpuProgram.getId());
-	glDrawArrays(GL_TRIANGLE_FAN, 0, nv); // Draw call
+	circle.draw();
 
 	glutSwapBuffers(); // exchange buffers for double buffering
 }
@@ -221,30 +245,24 @@ void onDisplay() {
 // Key of ASCII code pressed
 void onKeyboard(unsigned char key, int pX, int pY) {
 	switch (key) {
-	case 'a': //for (int i = 0; i < nv; i++) {
-		for (int i = 0; i < nv; i++) {
-			//	/*printf("%d elotte hyx: %f",i, verticeshy[i].x);
-			//	printf("  x: %f\n", vertices[i].x);*/
+	case 'a': 
+			//printf("  elotte: %f, %f", circle.verticeshy[1].x, circle.verticeshy[1].y);
+			modositas(circle.verticeshy, vec3(1,0,1));
+			//printf("    utana: %f, %f\n", circle.verticeshy[1].x, circle.verticeshy[1].y);
+			circle.vetites();
 
-				//printf(" %d sima: %f, %f", i, vertices[i].x, vertices[i].y);
-				//printf("  %d hy: %f, %f\n", i, verticeshy[i].x, verticeshy[i].y);
-				//verticeshy[i] = toHyper(vertices[i]);
-
-				//valamit csinálok vele
-				//printf("  %d ujhy: %f, %f\n", i, verticeshy[i].x, verticeshy[i].y);
-			//printf(" %d sima: %f, %f", i, vertices[i].x, vertices[i].y);
-			//printf("  %d hy: %f, %f\n", i, verticeshy[i].x, verticeshy[i].y);
-			verticeshy[i] = modositas(verticeshy[i]);
-
-
-			vertices[i] = toEukl(modositas(verticeshy[i]));//Miért nem mûködik?
-			//printf(" %d ujsima: %f, %f\n", i, vertices[i].x, vertices[i].y);
-			//printf("  %d ujhy: %f, %f\n", i, verticeshy[i].x, verticeshy[i].y);
-
-
-		};
 	printf("Pressed a\n");
 	break;
+
+	case 'd':
+		//printf("  elotte: %f, %f", circle.verticeshy[1].x, circle.verticeshy[1].y);
+		modositas(circle.verticeshy, vec3(-1,0,1));
+		//printf("    utana: %f, %f\n", circle.verticeshy[1].x, circle.verticeshy[1].y);
+		
+		//circle.vetites();
+
+		printf("Pressed d\n");
+		break;
 
 	}
 	glutPostRedisplay();
