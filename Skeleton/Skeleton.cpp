@@ -493,6 +493,7 @@ void onDisplay() {
 	glutSwapBuffers(); // exchange buffers for double buffering
 }
 
+
 // Key of ASCII code pressed
 void onKeyboard(unsigned char key, int pX, int pY) {
 	switch (key) {
