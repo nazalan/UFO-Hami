@@ -186,66 +186,61 @@ void korbeforgat(vec3 *p, vec3 center, float radius) {
 }
 
 class LineStrip {
-	std::vector<vec2>   controlPoints; // interleaved data of coordinates and colors
-	std::vector<float>  vertexData; // interleaved data of coordinates and colors
-	vec2			    wTranslate; // translation
+	std::vector<vec2> vpoints;
+
 public:
 	void create() {
-		glGenVertexArrays(1, &vao);
-		glBindVertexArray(vao);
+		glGenVertexArrays(1, &vao);  // get 1 vao id
+		glBindVertexArray(vao);      // make it active
 
-		glGenBuffers(1, &vbo); // Generate 1 vertex buffer object
+		glGenBuffers(1, &vbo);    // Generate 1 buffer
 		glBindBuffer(GL_ARRAY_BUFFER, vbo);
-		// Enable the vertex attribute arrays
-		glEnableVertexAttribArray(0);  // attribute array 0
-		glEnableVertexAttribArray(1);  // attribute array 1
-		// Map attribute array 0 to the vertex data of the interleaved vbo
-		glVertexAttribPointer(0, 2, GL_FLOAT, GL_FALSE, 5 * sizeof(float), reinterpret_cast<void*>(0)); // attribute array, components/attribute, component type, normalize?, stride, offset
-		// Map attribute array 1 to the color data of the interleaved vbo
-		glVertexAttribPointer(1, 3, GL_FLOAT, GL_FALSE, 5 * sizeof(float), reinterpret_cast<void*>(2 * sizeof(float)));
+
+		glEnableVertexAttribArray(0);  // AttribArray 0
+		glVertexAttribPointer(0,       // vbo -> AttribArray 0
+			2, GL_FLOAT, GL_FALSE, // two floats/attrib, not fixed-point
+			0, NULL);               // stride, offset: tightly packed
 	}
 
-	mat4 M() { // modeling transform
-		return mat4(1, 0, 0, 0,
-			0, 1, 0, 0,
-			0, 0, 1, 0,
-			0, 0, 0, 1); // translation
+	void AddPoint(vec3 c) {
+		vpoints.push_back(toEukl(c));
 	}
-
-
-	void AddPoint(float cX, float cY) {
-		// input pipeline
-		vec4 mVertex = vec4(cX, cY, 0, 1);
-		controlPoints.push_back(vec2(mVertex.x, mVertex.y));
-		// fill interleaved data
-		vertexData.push_back(mVertex.x);
-		vertexData.push_back(mVertex.y);
-		vertexData.push_back(1); // red
-		vertexData.push_back(1); // green
-		vertexData.push_back(1); // blue
-		// copy data to the GPU
-		glBindBuffer(GL_ARRAY_BUFFER, vbo);
-		glBufferData(GL_ARRAY_BUFFER, vertexData.size() * sizeof(float), &vertexData[0], GL_STATIC_DRAW);
-	}
-
 
 	void Draw() {
-		if (vertexData.size() > 0) {
-			// set GPU uniform matrix variable MVP with the content of CPU variable MVPTransform
-			mat4 MVPTransform = M();
-			gpuProgram.setUniform(MVPTransform, "MVP");
+		if (vpoints.size() > 0) {
+			int location = glGetUniformLocation(gpuProgram.getId(), "color");
+			glUniform3f(location, 1, 1, 1); // 3 floats
+
+			mat4 MVPtransf = { 1, 0, 0, 0,    // MVP matrix, 
+							  0, 1, 0, 0,    // row-major!
+							  0, 0, 1, 0,
+							   0, 0, 0, 1 };
+
+			location = glGetUniformLocation(gpuProgram.getId(), "MVP");	// Get the GPU location of uniform variable MVP
+			glUniformMatrix4fv(location, 1, GL_TRUE, MVPtransf);	// Load a 4x4 row-major float matrix to the specified location
+
 			glBindVertexArray(vao);
-			glDrawArrays(GL_LINE_STRIP, 0, vertexData.size() / 5);
+
+			glBufferData(GL_ARRAY_BUFFER,  // Copy to GPU target
+				sizeof(vec2) * vpoints.size(),  // # bytes
+				&vpoints[0],           // address
+				GL_STATIC_DRAW);    // we do not change later
+
+			glUseProgram(gpuProgram.getId());
+			glDrawArrays(GL_LINE_STRIP, 0, vpoints.size()); // Draw call
 		}
 	}
 };
 
+
+LineStrip line;
+
 class Circle {
 public:
 	float radius = 0.1f;
-	vec3 center; // =vec3(0.9,0.9, sqrtf(0.9 * 0.9 + 0.9 * 0.9 + 1));
+	vec3 center =vec3(0.9,0.9, sqrtf(0.9 * 0.9 + 0.9 * 0.9 + 1));
 	vec3 color = vec3(1, 0, 0);
-	vec3 irany; // = getjovec(center);
+	vec3 irany = getjovec(center);
 	float rad=0;
 	vec2 vertices[nv];
 	vec3 verticeshy[nv];
@@ -290,6 +285,8 @@ public:
 		center = center * cosh(d) + hnormalize(irany) * sinh(d);
 		center.z = sqrtf(center.x * center.x + center.y * center.y + 1);
 		irany = hnormalize(center * sinh(d) + hnormalize(irany) * cosh(d));
+		
+		line.AddPoint(center);
 	}
 
 	void forgas(float r) {
@@ -312,7 +309,7 @@ public:
 		glBindBuffer(GL_ARRAY_BUFFER, vbo);
 
 		korbeforgat(verticeshy, center, radius);
-		//line.create();
+
 
 		glEnableVertexAttribArray(0);  // AttribArray 0
 		glVertexAttribPointer(0,       // vbo -> AttribArray 0
@@ -321,7 +318,7 @@ public:
 	}
 
 	void draw() {
-		//line.Draw();
+
 
 		int location = glGetUniformLocation(gpuProgram.getId(), "color");
 		glUniform3f(location, color.x, color.y, color.z); // 3 floats
@@ -338,6 +335,7 @@ public:
 		
 
 		vetites();
+		
 
 		glBindVertexArray(vao);
 
@@ -348,6 +346,7 @@ public:
 
 		glUseProgram(gpuProgram.getId());
 		glDrawArrays(GL_TRIANGLE_FAN, 0, nv); // Draw call
+		
 	}
 };
 
@@ -414,8 +413,7 @@ public:
 		vec3 v;
 		vec3 u;
 		nyal.Draw();
-		printf("center: %f, %f\n", test.center.x, test.center.y);
-		nyal.AddPoint(test.center.x, test.center.y);
+
 		test.draw();
 
 
@@ -457,8 +455,8 @@ public:
 	}
 
 	void mozgas(float d) {
-		//nyal.AddPoint(test.center);
 		test.mozgas(d);
+		//nyal.AddPoint(test.center.x, test.center.y);
 	}
 
 	void forgas(float d) {
@@ -477,22 +475,22 @@ public:
 
 
 
-Hami zold = Hami(vec3(0, 1, 0), vec2(-0.6, -0.8));
-Hami piros = Hami(vec3(1, 0, 0), vec2(0.6, 0.8));
+//Hami zold = Hami(vec3(0, 1, 0), vec2(-0.6, -0.8));
+//Hami piros = Hami(vec3(1, 0, 0), vec2(0.6, 0.8));
 
-//Circle c;
+Circle c;
 
 // Initialization, create an OpenGL context
 void onInitialization() {
 	glViewport(0, 0, windowWidth, windowHeight);
-	palyaCreate();
+	//palyaCreate();
 	
-
-	piros.create();
-	zold.create();
+	line.create();
+	//piros.create();
+	//zold.create();
 	//c.setColor(vec3(1, 0, 0));
 	//c.setCenter(-0.6, -0.8);
-	//c.create();
+	c.create();
 	
 	// create program for the GPU
 	gpuProgram.create(vertexSource, fragmentSource, "outColor");
@@ -503,16 +501,21 @@ void onInitialization() {
 // Window has become invalid: Redraw
 void onDisplay() {
 	glClearColor(0.51f, 0.51f, 0.51f, 0);     // background color
+	glClearColor(0, 0, 0, 0);     // background color
 	glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT); // clear frame buffer
-	palyaDraw();
+	//palyaDraw();
 
 
-	piros.sethovanez(zold.getszajcenter());
-	piros.draw();
+	//piros.sethovanez(zold.getszajcenter());
+	//piros.draw();
 
-	zold.sethovanez(piros.getszajcenter());
-	zold.draw();
-	//c.draw();
+	//zold.sethovanez(piros.getszajcenter());
+	//zold.draw();
+	
+
+	line.Draw();
+	c.draw();
+	
 
 	glutSwapBuffers(); // exchange buffers for double buffering
 }
@@ -521,17 +524,17 @@ void onDisplay() {
 void onKeyboard(unsigned char key, int pX, int pY) {
 	switch (key) {
 	case 'w':
-		//c.mozgas(0.1);
+		c.mozgas(0.1);
 		//piros.mozgas(0.01);
 
-		//printf("Pressed a\n");
+		//printf("Pressed  a\n");
 		break;
 
 	case 'e':
 		//piros.forgas(M_PI/2);
-		//piros.mozgasy();
+		//piros.forgas(0.1);
 
-		//c.forgas(M_PI / 2);
+		c.forgas(M_PI / 2);
 
 		//printf("Pressed a\n");
 		break;
@@ -545,29 +548,10 @@ void onKeyboardUp(unsigned char key, int pX, int pY) {
 
 // Move mouse with key pressed
 void onMouseMotion(int pX, int pY) {	// pX, pY are the pixel coordinates of the cursor in the coordinate system of the operation system
-	// Convert to normalized device space
-	float cX = 2.0f * pX / windowWidth - 1;	// flip y axis
-	float cY = 1.0f - 2.0f * pY / windowHeight;
-	printf("Mouse moved to (%3.2f, %3.2f)\n", cX, cY);
 }
 
 // Mouse click event
 void onMouse(int button, int state, int pX, int pY) { // pX, pY are the pixel coordinates of the cursor in the coordinate system of the operation system
-	// Convert to normalized device space
-	float cX = 2.0f * pX / windowWidth - 1;	// flip y axis
-	float cY = 1.0f - 2.0f * pY / windowHeight;
-
-	char* buttonStat;
-	switch (state) {
-	case GLUT_DOWN: buttonStat = "pressed"; break;
-	case GLUT_UP:   buttonStat = "released"; break;
-	}
-
-	switch (button) {
-	case GLUT_LEFT_BUTTON:   printf("Left button %s at (%3.2f, %3.2f)\n", buttonStat, cX, cY);   break;
-	case GLUT_MIDDLE_BUTTON: printf("Middle button %s at (%3.2f, %3.2f)\n", buttonStat, cX, cY); break;
-	case GLUT_RIGHT_BUTTON:  printf("Right button %s at (%3.2f, %3.2f)\n", buttonStat, cX, cY);  break;
-	}
 }
 
 // Idle event indicating that some time elapsed: do animation here
@@ -579,7 +563,7 @@ void onIdle() {
 	//if (isec % 2 == 0) {
 	//	c.forgas(1);
 	//}
-	zold.korbemegy();
+	//zold.korbemegy();
 
 	//c.korbemegy();
 	//c.mozgas(0.002);
