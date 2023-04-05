@@ -96,13 +96,6 @@ void palyaDraw() {
 	int location = glGetUniformLocation(gpuProgram.getId(), "color");
 	glUniform3f(location, 0, 0, 0); // 3 floats
 
-	mat4 MVPtransf = { 1, 0, 0, 0,    // MVP matrix, 
-					  0, 1, 0, 0,    // row-major!
-					  0, 0, 0, 0,
-					   0, 0, 0, 1 };
-
-	location = glGetUniformLocation(gpuProgram.getId(), "MVP");	// Get the GPU location of uniform variable MVP
-	glUniformMatrix4fv(location, 1, GL_TRUE, MVPtransf);	// Load a 4x4 row-major float matrix to the specified location
 
 	glBindVertexArray(vao);
 
@@ -211,13 +204,6 @@ public:
 			int location = glGetUniformLocation(gpuProgram.getId(), "color");
 			glUniform3f(location, 1, 1, 1); // 3 floats
 
-			mat4 MVPtransf = { 1, 0, 0, 0,    // MVP matrix, 
-							  0, 1, 0, 0,    // row-major!
-							  0, 0, 1, 0,
-							   0, 0, 0, 1 };
-
-			location = glGetUniformLocation(gpuProgram.getId(), "MVP");	// Get the GPU location of uniform variable MVP
-			glUniformMatrix4fv(location, 1, GL_TRUE, MVPtransf);	// Load a 4x4 row-major float matrix to the specified location
 
 			glBindVertexArray(vao);
 
@@ -233,24 +219,22 @@ public:
 };
 
 
-LineStrip line;
-
 class Circle {
 public:
 	float radius = 0.1f;
-	vec3 center =vec3(0.9,0.9, sqrtf(0.9 * 0.9 + 0.9 * 0.9 + 1));
-	vec3 color = vec3(1, 0, 0);
-	vec3 irany = getjovec(center);
+	vec3 center;// = vec3(0.9, 0.9, sqrtf(0.9 * 0.9 + 0.9 * 0.9 + 1));
+	vec3 color;// = vec3(1, 0, 0);
+	vec3 irany;// = getjovec(center);
 	float rad=0;
 	vec2 vertices[nv];
 	vec3 verticeshy[nv];
 
-	/*Circle(float x, float y) {
-		center.x = x;
-		center.y = y;
-		center.z = sqrtf(x * x + y * y + 1);
-		irany = getjovec(center);
-	}*/
+	//Circle(float x, float y) {
+	//	center.x = x;
+	//	center.y = y;
+	//	center.z = sqrtf(x * x + y * y + 1);
+	//	irany = getjovec(center);
+	//}
 
 	void setCenter(float x, float y) {
 		center.x = x;
@@ -286,7 +270,6 @@ public:
 		center.z = sqrtf(center.x * center.x + center.y * center.y + 1);
 		irany = hnormalize(center * sinh(d) + hnormalize(irany) * cosh(d));
 		
-		line.AddPoint(center);
 	}
 
 	void forgas(float r) {
@@ -412,6 +395,8 @@ public:
 	void draw() {
 		vec3 v;
 		vec3 u;
+
+		
 		nyal.Draw();
 
 		test.draw();
@@ -440,8 +425,6 @@ public:
 		pupilla2.draw();
 
 
-
-
 		v = test.center * cosh(test.radius) + hnormalize(test.irany) * sinh(test.radius);
 		szaj.setCenter(v.x, v.y);
 		center = v;
@@ -456,7 +439,7 @@ public:
 
 	void mozgas(float d) {
 		test.mozgas(d);
-		//nyal.AddPoint(test.center.x, test.center.y);
+		nyal.AddPoint(test.center);
 	}
 
 	void forgas(float d) {
@@ -475,22 +458,17 @@ public:
 
 
 
-//Hami zold = Hami(vec3(0, 1, 0), vec2(-0.6, -0.8));
-//Hami piros = Hami(vec3(1, 0, 0), vec2(0.6, 0.8));
+Hami zold = Hami(vec3(0, 1, 0), vec2(0.6, 0.3));
+Hami piros = Hami(vec3(1, 0, 0), vec2(-0.6, 0.8));
 
-Circle c;
 
 // Initialization, create an OpenGL context
 void onInitialization() {
 	glViewport(0, 0, windowWidth, windowHeight);
-	//palyaCreate();
+	palyaCreate();
 	
-	line.create();
-	//piros.create();
-	//zold.create();
-	//c.setColor(vec3(1, 0, 0));
-	//c.setCenter(-0.6, -0.8);
-	c.create();
+	piros.create();
+	zold.create();
 	
 	// create program for the GPU
 	gpuProgram.create(vertexSource, fragmentSource, "outColor");
@@ -501,20 +479,15 @@ void onInitialization() {
 // Window has become invalid: Redraw
 void onDisplay() {
 	glClearColor(0.51f, 0.51f, 0.51f, 0);     // background color
-	glClearColor(0, 0, 0, 0);     // background color
 	glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT); // clear frame buffer
-	//palyaDraw();
+	palyaDraw();
 
 
-	//piros.sethovanez(zold.getszajcenter());
-	//piros.draw();
+	piros.sethovanez(zold.getszajcenter());
+	piros.draw();
 
-	//zold.sethovanez(piros.getszajcenter());
-	//zold.draw();
-	
-
-	line.Draw();
-	c.draw();
+	zold.sethovanez(piros.getszajcenter());
+	zold.draw();
 	
 
 	glutSwapBuffers(); // exchange buffers for double buffering
@@ -523,19 +496,22 @@ void onDisplay() {
 // Key of ASCII code pressed
 void onKeyboard(unsigned char key, int pX, int pY) {
 	switch (key) {
-	case 'w':
-		c.mozgas(0.1);
-		//piros.mozgas(0.01);
+	case 'e':
+		piros.mozgas(0.01);
 
 		//printf("Pressed  a\n");
 		break;
 
-	case 'e':
-		//piros.forgas(M_PI/2);
+	case 's':
+		piros.forgas(M_PI/2);
 		//piros.forgas(0.1);
+		//printf("Pressed a\n");
+		break;
+	
 
-		c.forgas(M_PI / 2);
-
+	case 'f':
+		//piros.forgas(M_PI / 2);
+		piros.forgas(-0.1);
 		//printf("Pressed a\n");
 		break;
 	}
@@ -563,7 +539,7 @@ void onIdle() {
 	//if (isec % 2 == 0) {
 	//	c.forgas(1);
 	//}
-	//zold.korbemegy();
+	zold.korbemegy();
 
 	//c.korbemegy();
 	//c.mozgas(0.002);
