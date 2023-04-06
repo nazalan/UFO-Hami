@@ -1,4 +1,3 @@
-
 //=============================================================================================
 // Mintaprogram: Zöld háromszög. Ervenyes 2019. osztol.
 //
@@ -91,7 +90,6 @@ void palyaCreate() {
 		2, GL_FLOAT, GL_FALSE, // two floats/attrib, not fixed-point
 		0, NULL);               // stride, offset: tightly packed
 }
-
 void palyaDraw() {
 	int location = glGetUniformLocation(gpuProgram.getId(), "color");
 	glUniform3f(location, 0, 0, 0); // 3 floats
@@ -108,12 +106,9 @@ void palyaDraw() {
 	glDrawArrays(GL_TRIANGLE_FAN, 0, nv); // Draw call
 }
 
-
-
 float hdot(vec3 v, vec3 u) {
 	return u.x * v.x + u.y * v.y - u.z * v.z;
 }
-
 
 float hlength(const vec3& v) { 
 	return sqrtf(hdot(v, v));
@@ -123,14 +118,15 @@ vec3 hnormalize(const vec3& v) {
 	return v * (1 / hlength(v));
 }
 
-vec3 getjovec(vec3 v) {
-	vec3 u;
-	u.x = v.x;
-	u.y = v.y;
-	u.z= (v.x * v.x + v.y * v.y) / v.z;
-	u = hnormalize(u);
-	return u;
+vec3 getjovec(vec3 p) { //egy olyan vektort ad vissza, amire v*p=0;
+	vec3 v;
+	v.x = p.x;
+	v.y = p.y;
+	v.z= (p.x * p.x + p.y * p.y) / p.z;
+	v = hnormalize(v);
+	return v;
 }
+
 vec3 hcross(vec3 p, vec3 q) {
 	vec3 v1 = vec3(p.x, p.y, -1 * p.z);
 	vec3 v2 = vec3(q.x, q.y, -1 * q.z);
@@ -139,39 +135,53 @@ vec3 hcross(vec3 p, vec3 q) {
 	return v;
 }
 
-vec3 toHyper(vec2 point) {
-	vec3 vek;
-	vek.x = (-2 * point.x)/(point.x* point.x+ point.y * point.y +-1);
-	vek.y= (-2 * point.y) / (point.x * point.x+ point.y * point.y - 1);
-	vek.z = sqrt(vek.x * vek.x + vek.y * vek.y + 1);
-
-	return vek;
-	
-}
-
 vec2 toEukl(vec3 point) {
 	vec2 vek = vec2(point.x / (point.z + 1), point.y / (point.z + 1));
 	return vek;
 }
 
-//meroleges
+void korrigal(vec3& p) {
+	p.z = sqrtf(p.x * p.x + p.y * p.y + 1);
+}
+
+//1.fuggveny
 vec3 meroleges(vec3 p) {
 	vec3 q = getjovec(p);
 	return hcross(p, q);
 }
 
+//2.fuggveny
+void mozgatasHelyre(vec3 p, vec3& ujp, vec3 s, vec3& ujs, float t) {
+	ujp = p * coshf(t) + hnormalize(s) * sinhf(t);
+	korrigal(ujp);
+	ujs= hnormalize(p * sinhf(t) + s * coshf(t));
+}
 
-vec3 elforgat(vec3 q, vec3 center, vec3 meroleges, float rad) {
+//3.fuggveny
+void pontIranyaTavolsaga(vec3 p, vec3 q, vec3& irany, float& tav) {
+	irany = hnormalize((q - p * cosh(0.5)) / sinh(0.5));
+	tav = hlength(p-q);
+}
+
+//4.fuggveny
+void pontEloallitasa(vec3 p, vec3& ujp, vec3 s, float t) {
+	ujp = p * coshf(t) + hnormalize(s) * sinhf(t);
+	korrigal(ujp);
+}
+
+//5.fuggveny
+vec3 elforgat(vec3 q, vec3 meroleges, float rad) {
 	return hnormalize((q * cos(rad) + meroleges * sin(rad)));
 }
 
-void korbeforgat(vec3 *p, vec3 center, float radius) {
+
+void korbeforgat(vec3 *p, vec3 center, float radius) { //körbeforgat egy vektrot egy pont körül
 	vec3 q = getjovec(center);
 	vec3 m = meroleges(center);
 	vec3 elf;
 
 	for (int i = 0; i < nv; i++) {
-		elf = elforgat(q, center, m, 2 * M_PI / nv);
+		elf = elforgat(q, m, 2 * M_PI / nv);
 		p[i] = center * cosh(radius) + hnormalize(elf) * sinh(radius);
 		q = elf;
 		m = hcross(center, q);
@@ -218,23 +228,16 @@ public:
 	}
 };
 
-
 class Circle {
 public:
-	float radius = 0.1f;
-	vec3 center;// = vec3(0.9, 0.9, sqrtf(0.9 * 0.9 + 0.9 * 0.9 + 1));
-	vec3 color;// = vec3(1, 0, 0);
-	vec3 irany;// = getjovec(center);
+	float radius;
+	vec3 center;
+	vec3 color;
+	vec3 irany;
 	float rad=0;
 	vec2 vertices[nv];
 	vec3 verticeshy[nv];
 
-	//Circle(float x, float y) {
-	//	center.x = x;
-	//	center.y = y;
-	//	center.z = sqrtf(x * x + y * y + 1);
-	//	irany = getjovec(center);
-	//}
 
 	void setCenter(float x, float y) {
 		center.x = x;
@@ -259,6 +262,14 @@ public:
 		return irany;
 	}
 
+	vec3 getCenter() {
+		return center;
+	}
+
+	float getRadius() {
+		return radius;
+	}
+
 	void vetites() {
 		for (int i = 0; i < nv; i++) {
 			vertices[i] = toEukl(verticeshy[i]);
@@ -266,14 +277,12 @@ public:
 	}
 
 	void mozgas(float d){
-		center = center * cosh(d) + hnormalize(irany) * sinh(d);
-		center.z = sqrtf(center.x * center.x + center.y * center.y + 1);
-		irany = hnormalize(center * sinh(d) + hnormalize(irany) * cosh(d));
+		mozgatasHelyre(center, center, hnormalize(irany), irany, d);
 		
 	}
 
 	void forgas(float r) {
-		irany = hnormalize(irany * cos(r) + hcross(center, irany) * sin(r));//függvényböl
+		irany = elforgat(irany, hcross(center, irany), r);
 	}
 
 	void korbemegy() {
@@ -283,7 +292,6 @@ public:
 		forgas(r);
 	}
 	
-
 	void create() {
 		glGenVertexArrays(1, &vao);  // get 1 vao id
 		glBindVertexArray(vao);      // make it active
@@ -315,11 +323,8 @@ public:
 		glUniformMatrix4fv(location, 1, GL_TRUE, MVPtransf);	// Load a 4x4 row-major float matrix to the specified location
 
 		korbeforgat(verticeshy, center, radius);
-		
-
 		vetites();
 		
-
 		glBindVertexArray(vao);
 
 		glBufferData(GL_ARRAY_BUFFER,  // Copy to GPU target
@@ -333,7 +338,6 @@ public:
 	}
 };
 
-
 class Hami {
 	LineStrip nyal;
 	Circle test;
@@ -344,7 +348,7 @@ class Hami {
 	Circle pupilla2;
 	vec3 color;
 	vec3 center;
-	vec3 hovanez = vec3(-0.6, -0.8, sqrtf(0.6 * 0.6 + 0.8 * 0.8 + 1));
+	vec3 hovanez;// = vec3(-0.6, -0.8, sqrtf(0.6 * 0.6 + 0.8 * 0.8 + 1));
 	float szajmeret = 0;
 	bool no = true;
 public:
@@ -374,58 +378,55 @@ public:
 		szaj.setColor(vec3(0, 0, 0));
 		szaj.create();
 		
-		szem1.setRadius(0.08f);
+		szem1.setRadius(0.05f);
 		szem1.setColor(vec3(1, 1, 1));
 		szem1.create();
 
-		szem2.setRadius(0.08f);
+		szem2.setRadius(0.05f);
 		szem2.setColor(vec3(1, 1, 1));
 		szem2.create();
 
-		pupilla1.setRadius(0.03f);
+		pupilla1.setRadius(0.02f);
 		pupilla1.setColor(vec3(0, 0, 1));
 		pupilla1.create();
 
-		pupilla2.setRadius(0.03f);
+		pupilla2.setRadius(0.02f);
 		pupilla2.setColor(vec3(0, 0, 1));
 		pupilla2.create();
 
 
 	}
 	void draw() {
-		vec3 v;
-		vec3 u;
-
-		
+		vec3 v; //segedvaltozo
+		vec3 u; //segedvaltozo
+		float d; //segedvaltozo
 		nyal.Draw();
-
 		test.draw();
 
 
-		u = test.irany * cos(-M_PI / 4) + hcross(test.center, test.irany) * sin(-M_PI / 4);
-		v = test.center * cosh(test.radius) + hnormalize(u) * sinh(test.radius);
+		u = elforgat(test.getirany(), hcross(test.center, test.irany), -M_PI / 4);
+		pontEloallitasa(test.getCenter(), v, hnormalize(u), test.getRadius());
 		szem1.setCenter(v.x, v.y);
 		szem1.draw();
 
-		u = test.irany * cos(M_PI / 4) + hcross(test.center, test.irany) * sin(M_PI / 4);
-		v = test.center * cosh(test.radius) + hnormalize(u) * sinh(test.radius);
+		u = elforgat(test.getirany(), hcross(test.center, test.irany), M_PI / 4);
+		pontEloallitasa(test.getCenter(), v, hnormalize(u), test.getRadius());
 		szem2.setCenter(v.x, v.y);
 		szem2.draw();
 
 
-
-		u = (hovanez - szem1.center * cosh(1)) / sinh(1);
-		v = szem1.center * cosh(szem1.radius) + hnormalize(u) * sinh(szem1.radius);
+		pontIranyaTavolsaga(szem1.center, hovanez, u, d);
+		pontEloallitasa(szem1.getCenter(), v, hnormalize(u), szem1.getRadius());
 		pupilla1.setCenter(v.x, v.y);
 		pupilla1.draw();
 
-		u = (hovanez - szem2.center * cosh(szem2.radius)) / sinh(szem2.radius);
-		v = szem2.center * cosh(szem2.radius) + hnormalize(u) * sinh(szem2.radius);
+		pontIranyaTavolsaga(szem2.center, hovanez, u, d);
+		pontEloallitasa(szem2.getCenter(), v, hnormalize(u), szem2.getRadius());
 		pupilla2.setCenter(v.x, v.y);
 		pupilla2.draw();
 
 
-		v = test.center * cosh(test.radius) + hnormalize(test.irany) * sinh(test.radius);
+		pontEloallitasa(test.getCenter(), v, hnormalize(test.irany), test.getRadius());
 		szaj.setCenter(v.x, v.y);
 		center = v;
 		szaj.setRadius(szajmeret);
@@ -433,8 +434,6 @@ public:
 		if (szajmeret > 0.08) { no = false; }
 		if (szajmeret < 0.001) { no = true; }
 		szaj.draw();
-		
-
 	}
 
 	void mozgas(float d) {
@@ -444,7 +443,10 @@ public:
 
 	void forgas(float d) {
 		test.forgas(d);
+	}
 
+	void allandodordul() {
+		forgas(0.0025);
 	}
 
 	void korbemegy() {
@@ -456,11 +458,8 @@ public:
 
 };
 
-
-
 Hami zold = Hami(vec3(0, 1, 0), vec2(0.6, 0.3));
 Hami piros = Hami(vec3(1, 0, 0), vec2(-0.6, 0.8));
-
 
 // Initialization, create an OpenGL context
 void onInitialization() {
@@ -474,14 +473,12 @@ void onInitialization() {
 	gpuProgram.create(vertexSource, fragmentSource, "outColor");
 }
 
-
-
 // Window has become invalid: Redraw
 void onDisplay() {
 	glClearColor(0.51f, 0.51f, 0.51f, 0);     // background color
 	glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT); // clear frame buffer
-	palyaDraw();
 
+	palyaDraw();
 
 	piros.sethovanez(zold.getszajcenter());
 	piros.draw();
@@ -489,7 +486,6 @@ void onDisplay() {
 	zold.sethovanez(piros.getszajcenter());
 	zold.draw();
 	
-
 	glutSwapBuffers(); // exchange buffers for double buffering
 }
 
@@ -498,22 +494,15 @@ void onDisplay() {
 void onKeyboard(unsigned char key, int pX, int pY) {
 	switch (key) {
 	case 'e':
-		piros.mozgas(0.01);
-
-		//printf("Pressed  a\n");
+			piros.mozgas(0.1);
 		break;
 
 	case 's':
 		piros.forgas(M_PI/2);
-		//piros.forgas(0.1);
-		//printf("Pressed a\n");
 		break;
 	
-
 	case 'f':
-		//piros.forgas(M_PI / 2);
 		piros.forgas(-0.1);
-		//printf("Pressed a\n");
 		break;
 	}
 	glutPostRedisplay();
@@ -532,18 +521,8 @@ void onMouse(int button, int state, int pX, int pY) { // pX, pY are the pixel co
 }
 
 // Idle event indicating that some time elapsed: do animation here
+
 void onIdle() {
-	long time = glutGet(GLUT_ELAPSED_TIME); // elapsed time since the start of the program
-	float sec = (time / 1000.0f);	// convert msec to sec
-	int isec = sec;
-	//printf("ido %f\n", sec);
-	//if (isec % 2 == 0) {
-	//	c.forgas(1);
-	//}
 	zold.korbemegy();
-
-	//c.korbemegy();
-	//c.mozgas(0.002);
 	glutPostRedisplay();
-
 }
