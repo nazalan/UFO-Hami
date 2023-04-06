@@ -159,7 +159,7 @@ void mozgatasHelyre(vec3 p, vec3& ujp, vec3 s, vec3& ujs, float t) {
 
 //3.fuggveny
 void pontIranyaTavolsaga(vec3 p, vec3 q, vec3& irany, float& tav) {
-	irany = hnormalize((q - p * cosh(0.5)) / sinh(0.5));
+	irany = hnormalize((q - p * coshf(0.5)) / sinhf(0.5));
 	tav = hlength(p-q);
 }
 
@@ -171,7 +171,7 @@ void pontEloallitasa(vec3 p, vec3& ujp, vec3 s, float t) {
 
 //5.fuggveny
 vec3 elforgat(vec3 q, vec3 meroleges, float rad) {
-	return hnormalize((q * cos(rad) + meroleges * sin(rad)));
+	return hnormalize((q * cosf(rad) + meroleges * sinf(rad)));
 }
 
 
@@ -229,7 +229,6 @@ public:
 };
 
 class Circle {
-public:
 	float radius;
 	vec3 center;
 	vec3 color;
@@ -237,8 +236,7 @@ public:
 	float rad=0;
 	vec2 vertices[nv];
 	vec3 verticeshy[nv];
-
-
+public:
 	void setCenter(float x, float y) {
 		center.x = x;
 		center.y = y;
@@ -404,29 +402,29 @@ public:
 		test.draw();
 
 
-		u = elforgat(test.getirany(), hcross(test.center, test.irany), -M_PI / 4);
+		u = elforgat(test.getirany(), hcross(test.getCenter(), test.getirany()), -M_PI / 4);
 		pontEloallitasa(test.getCenter(), v, hnormalize(u), test.getRadius());
 		szem1.setCenter(v.x, v.y);
 		szem1.draw();
 
-		u = elforgat(test.getirany(), hcross(test.center, test.irany), M_PI / 4);
+		u = elforgat(test.getirany(), hcross(test.getCenter(), test.getirany()), M_PI / 4);
 		pontEloallitasa(test.getCenter(), v, hnormalize(u), test.getRadius());
 		szem2.setCenter(v.x, v.y);
 		szem2.draw();
 
 
-		pontIranyaTavolsaga(szem1.center, hovanez, u, d);
+		pontIranyaTavolsaga(szem1.getCenter(), hovanez, u, d);
 		pontEloallitasa(szem1.getCenter(), v, hnormalize(u), szem1.getRadius());
 		pupilla1.setCenter(v.x, v.y);
 		pupilla1.draw();
 
-		pontIranyaTavolsaga(szem2.center, hovanez, u, d);
+		pontIranyaTavolsaga(szem2.getCenter(), hovanez, u, d);
 		pontEloallitasa(szem2.getCenter(), v, hnormalize(u), szem2.getRadius());
 		pupilla2.setCenter(v.x, v.y);
 		pupilla2.draw();
 
 
-		pontEloallitasa(test.getCenter(), v, hnormalize(test.irany), test.getRadius());
+		pontEloallitasa(test.getCenter(), v, hnormalize(test.getirany()), test.getRadius());
 		szaj.setCenter(v.x, v.y);
 		center = v;
 		szaj.setRadius(szajmeret);
@@ -438,15 +436,11 @@ public:
 
 	void mozgas(float d) {
 		test.mozgas(d);
-		nyal.AddPoint(test.center);
+		nyal.AddPoint(test.getCenter());
 	}
 
 	void forgas(float d) {
 		test.forgas(d);
-	}
-
-	void allandodordul() {
-		forgas(0.0025);
 	}
 
 	void korbemegy() {
@@ -496,11 +490,9 @@ void onKeyboard(unsigned char key, int pX, int pY) {
 	case 'e':
 			piros.mozgas(0.1);
 		break;
-
 	case 's':
 		piros.forgas(M_PI/2);
 		break;
-	
 	case 'f':
 		piros.forgas(-0.1);
 		break;
