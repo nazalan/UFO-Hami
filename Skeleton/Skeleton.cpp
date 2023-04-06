@@ -67,43 +67,36 @@ const char* const fragmentSource = R"(
 )";
 
 
-GPUProgram gpuProgram; // vertex and fragment shaders
-unsigned int vao, vbo;// virtual world on the GPU
+GPUProgram gpuProgram; 
+unsigned int vao, vbo;
 const int nv = 360;
 
-vec2 pvertices[100];
+vec2 pvertices[100]; //palya  pontjai
 void palyaCreate() {
-	glGenVertexArrays(1, &vao);  // get 1 vao id
-	glBindVertexArray(vao);      // make it active
+	glGenVertexArrays(1, &vao); 
+	glBindVertexArray(vao); 
 
-	glGenBuffers(1, &vbo);    // Generate 1 buffer
+	glGenBuffers(1, &vbo);
 	glBindBuffer(GL_ARRAY_BUFFER, vbo);
-
 
 	for (int i = 0; i < 100; i++) {
 		float fi = i * 2 * M_PI / 100;
 		pvertices[i] = vec2(cos(fi), sin(fi));
 	}
 
-	glEnableVertexAttribArray(0);  // AttribArray 0
-	glVertexAttribPointer(0,       // vbo -> AttribArray 0
-		2, GL_FLOAT, GL_FALSE, // two floats/attrib, not fixed-point
-		0, NULL);               // stride, offset: tightly packed
+	glEnableVertexAttribArray(0);
+	glVertexAttribPointer(0, 2, GL_FLOAT, GL_FALSE, 0, NULL);              
 }
 void palyaDraw() {
 	int location = glGetUniformLocation(gpuProgram.getId(), "color");
-	glUniform3f(location, 0, 0, 0); // 3 floats
-
+	glUniform3f(location, 0, 0, 0);
 
 	glBindVertexArray(vao);
 
-	glBufferData(GL_ARRAY_BUFFER,  // Copy to GPU target
-		sizeof(vec2) * 100,  // # bytes
-		pvertices,           // address
-		GL_STATIC_DRAW);    // we do not change later
+	glBufferData(GL_ARRAY_BUFFER, sizeof(vec2) * 100, pvertices, GL_STATIC_DRAW);
 
 	glUseProgram(gpuProgram.getId());
-	glDrawArrays(GL_TRIANGLE_FAN, 0, nv); // Draw call
+	glDrawArrays(GL_TRIANGLE_FAN, 0, nv);
 }
 
 float hdot(vec3 v, vec3 u) {
@@ -174,7 +167,6 @@ vec3 elforgat(vec3 q, vec3 meroleges, float rad) {
 	return hnormalize((q * cosf(rad) + meroleges * sinf(rad)));
 }
 
-
 void korbeforgat(vec3 *p, vec3 center, float radius) { //körbeforgat egy vektrot egy pont körül
 	vec3 q = getjovec(center);
 	vec3 m = meroleges(center);
@@ -193,16 +185,14 @@ class LineStrip {
 
 public:
 	void create() {
-		glGenVertexArrays(1, &vao);  // get 1 vao id
-		glBindVertexArray(vao);      // make it active
+		glGenVertexArrays(1, &vao); 
+		glBindVertexArray(vao);    
 
-		glGenBuffers(1, &vbo);    // Generate 1 buffer
+		glGenBuffers(1, &vbo);   
 		glBindBuffer(GL_ARRAY_BUFFER, vbo);
 
-		glEnableVertexAttribArray(0);  // AttribArray 0
-		glVertexAttribPointer(0,       // vbo -> AttribArray 0
-			2, GL_FLOAT, GL_FALSE, // two floats/attrib, not fixed-point
-			0, NULL);               // stride, offset: tightly packed
+		glEnableVertexAttribArray(0);  
+		glVertexAttribPointer(0, 2, GL_FLOAT, GL_FALSE, 0, NULL);             
 	}
 
 	void AddPoint(vec3 c) {
@@ -212,18 +202,15 @@ public:
 	void Draw() {
 		if (vpoints.size() > 0) {
 			int location = glGetUniformLocation(gpuProgram.getId(), "color");
-			glUniform3f(location, 1, 1, 1); // 3 floats
+			glUniform3f(location, 1, 1, 1);
 
 
 			glBindVertexArray(vao);
 
-			glBufferData(GL_ARRAY_BUFFER,  // Copy to GPU target
-				sizeof(vec2) * vpoints.size(),  // # bytes
-				&vpoints[0],           // address
-				GL_STATIC_DRAW);    // we do not change later
+			glBufferData(GL_ARRAY_BUFFER, sizeof(vec2) * vpoints.size(), &vpoints[0], GL_STATIC_DRAW);
 
 			glUseProgram(gpuProgram.getId());
-			glDrawArrays(GL_LINE_STRIP, 0, vpoints.size()); // Draw call
+			glDrawArrays(GL_LINE_STRIP, 0, vpoints.size());
 		}
 	}
 };
@@ -233,7 +220,6 @@ class Circle {
 	vec3 center;
 	vec3 color;
 	vec3 irany;
-	float rad=0;
 	vec2 vertices[nv];
 	vec3 verticeshy[nv];
 public:
@@ -345,10 +331,10 @@ class Hami {
 	Circle pupilla1;
 	Circle pupilla2;
 	vec3 color;
-	vec3 center;
-	vec3 hovanez;// = vec3(-0.6, -0.8, sqrtf(0.6 * 0.6 + 0.8 * 0.8 + 1));
+	vec3 center; //a szajnak a kozepe
+	vec3 hovanez;
 	float szajmeret = 0;
-	bool no = true;
+	bool no = true; //a szaj novekszik vagy csokken
 public:
 	Hami(vec3 c, vec2 kp) {
 		color = c;
@@ -449,13 +435,11 @@ public:
 		mozgas(d);
 		forgas(r);
 	}
-
 };
 
 Hami zold = Hami(vec3(0, 1, 0), vec2(0.6, 0.3));
 Hami piros = Hami(vec3(1, 0, 0), vec2(-0.6, 0.8));
 
-// Initialization, create an OpenGL context
 void onInitialization() {
 	glViewport(0, 0, windowWidth, windowHeight);
 	palyaCreate();
@@ -463,14 +447,12 @@ void onInitialization() {
 	piros.create();
 	zold.create();
 	
-	// create program for the GPU
 	gpuProgram.create(vertexSource, fragmentSource, "outColor");
 }
 
-// Window has become invalid: Redraw
 void onDisplay() {
-	glClearColor(0.51f, 0.51f, 0.51f, 0);     // background color
-	glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT); // clear frame buffer
+	glClearColor(0.51f, 0.51f, 0.51f, 0);     
+	glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT); 
 
 	palyaDraw();
 
@@ -480,11 +462,9 @@ void onDisplay() {
 	zold.sethovanez(piros.getszajcenter());
 	zold.draw();
 	
-	glutSwapBuffers(); // exchange buffers for double buffering
+	glutSwapBuffers(); 
 }
 
-
-// Key of ASCII code pressed
 void onKeyboard(unsigned char key, int pX, int pY) {
 	switch (key) {
 	case 'e':
@@ -499,20 +479,6 @@ void onKeyboard(unsigned char key, int pX, int pY) {
 	}
 	glutPostRedisplay();
 }
-
-// Key of ASCII code released
-void onKeyboardUp(unsigned char key, int pX, int pY) {
-}
-
-// Move mouse with key pressed
-void onMouseMotion(int pX, int pY) {	// pX, pY are the pixel coordinates of the cursor in the coordinate system of the operation system
-}
-
-// Mouse click event
-void onMouse(int button, int state, int pX, int pY) { // pX, pY are the pixel coordinates of the cursor in the coordinate system of the operation system
-}
-
-// Idle event indicating that some time elapsed: do animation here
 
 void onIdle() {
 	zold.korbemegy();
